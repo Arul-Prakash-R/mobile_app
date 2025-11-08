@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Shield, ShieldCheck, History, MapPin } from "lucide-react-native";
+import { ScanSearch, ShieldCheck, Clock, MapPin } from "lucide-react-native";
 import React from "react";
 import Colors from "@/constants/colors";
 
@@ -20,28 +20,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, size }) => <Shield size={size} color={color} />,
+          title: "Scan",
+          tabBarIcon: ({ color, size }) => <ScanSearch size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="scanner"
         options={{
-          title: "Secure Mode",
+          title: "Protection",
           tabBarIcon: ({ color, size }) => <ShieldCheck size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: "History",
-          tabBarIcon: ({ color, size }) => <History size={size} color={color} />,
+          title: "Activity",
+          tabBarIcon: ({ color, size }) => <Clock size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="location"
         options={{
-          title: "Find Device",
+          title: "Find",
           tabBarIcon: ({ color, size }) => <MapPin size={size} color={color} />,
         }}
       />
