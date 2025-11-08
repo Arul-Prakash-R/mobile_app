@@ -1,38 +1,50 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SecurityProvider } from "@/providers/SecurityProvider";
-import { EmergencyAlertModal } from "@/components/EmergencyAlertModal";
+import { Tabs } from "expo-router";
+import { ScanSearch, ShieldCheck, Clock, MapPin } from "lucide-react-native";
+import React from "react";
+import Colors from "@/constants/colors";
 
-SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
-
-function RootLayoutNav() {
+export default function TabLayout() {
   return (
-    <>
-      <Stack screenOptions={{ headerBackTitle: "Back" }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <EmergencyAlertModal />
-    </>
-  );
-}
-
-export default function RootLayout() {
-  useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <SecurityProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </SecurityProvider>
-    </QueryClientProvider>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: Colors.light.primary,
+        tabBarInactiveTintColor: Colors.light.tabIconDefault,
+        headerShown: true,
+        tabBarStyle: {
+          backgroundColor: Colors.light.cardBackground,
+          borderTopColor: Colors.light.border,
+          borderTopWidth: 1,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Scan",
+          tabBarIcon: ({ color, size }) => <ScanSearch size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="scanner"
+        options={{
+          title: "Protection",
+          tabBarIcon: ({ color, size }) => <ShieldCheck size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: "Activity",
+          tabBarIcon: ({ color, size }) => <Clock size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="location"
+        options={{
+          title: "Find",
+          tabBarIcon: ({ color, size }) => <MapPin size={size} color={color} />,
+        }}
+      />
+    </Tabs>
   );
 }
