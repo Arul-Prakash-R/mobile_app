@@ -1,37 +1,44 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated } from "react-native";
-import { Shield, AlertTriangle, CheckCircle, Activity, Clock, Eye, ShieldCheck } from "lucide-react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform } from "react-native";
+import { ShieldCheck, Activity, CheckCircle, AlertTriangle, ScanSearch, Zap, Lock, Eye, Cpu, Globe } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { useSecurity } from "@/providers/SecurityProvider";
 import Colors from "@/constants/colors";
 import { getThreatColor, getThreatLabel } from "@/utils/security";
-import * as Haptics from "expo-haptics";
 import { Stack } from "expo-router";
 
 export default function DashboardScreen() {
   const { 
     getSecurityStatus, 
     threats, 
-    secureModeEnabled, 
     isMonitoring,
     urlsScanned,
-    activitiesMonitored 
+    activitiesMonitored,
+    isScanning,
+    scanProgress,
+    runQuickScan,
+    toggleSecureMode,
+    showMaliciousAlert
   } = useSecurity();
   const status = getSecurityStatus();
+  const insets = useSafeAreaInsets();
   
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const scanAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (isMonitoring) {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.08,
-            duration: 1500,
+            toValue: 1.1,
+            duration: 1200,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1500,
+            duration: 1200,
             useNativeDriver: true,
           }),
         ])
@@ -42,123 +49,244 @@ export default function DashboardScreen() {
     }
   }, [isMonitoring, pulseAnim]);
 
-  const handleScan = () => {
+  React.useEffect(() => {
+    if (isScanning) {
+      Animated.loop(
+        Animated.timing(scanAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      scanAnim.stopAnimation();
+      scanAnim.setValue(0);
+    }
+  }, [isScanning, scanAnim]);
+
+  const handleQuickScan = async () => {
+    if (isScanning) return;
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    await runQuickScan();
   };
+
+  const handleToggleProtection = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
+    toggleSecureMode();
+  };
+
+  const simulateMaliciousSite = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    showMaliciousAlert({
+      title: "Malicious Website Blocked",
+      description: "We detected a phishing website attempting to steal your PayPal credentials. Your security is our priority.",
+      url: "http://verify-paypal-secure.phishing-site.com/login",
+      type: "website",
+    });
+  };
+
+  const simulateMaliciousApp = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    showMaliciousAlert({
+      title: "Malicious App Installation Blocked",
+      description: "This app contains trojan malware that could steal sensitive data from your device. Installation has been blocked for your protection.",
+      appName: "Free Games Hack.apk",
+      type: "app",
+    });
+  };
+
+  const rotateInterpolate = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
 
   const recentThreats = threats.slice(0, 3);
 
   return (
     <>
-      <Stack.Screen options={{ title: "Security Dashboard" }} />
+      <Stack.Screen options={{ title: "Arul Scan & Find", headerLargeTitle: true }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        {isMonitoring && (
-          <View style={styles.monitoringBanner}>
-            <Animated.View style={[styles.monitoringIcon, { transform: [{ scale: pulseAnim }] }]}>
-              <ShieldCheck size={20} color="#fff" />
-            </Animated.View>
-            <View style={styles.monitoringInfo}>
-              <Text style={styles.monitoringTitle}>Secure Mode Active</Text>
-              <Text style={styles.monitoringSubtitle}>Real-time protection enabled</Text>
+        
+        <View style={styles.heroCard}>
+          <View style={styles.heroContent}>
+            <View style={styles.heroTop}>
+              <View style={styles.heroLeft}>
+                <Animated.View style={{ transform: [{ scale: isMonitoring ? pulseAnim : 1 }] }}>
+                  <View style={[
+                    styles.shieldContainer,
+                    { 
+                      backgroundColor: isMonitoring ? Colors.light.success : Colors.light.textMuted,
+                      shadowColor: isMonitoring ? Colors.light.success : Colors.light.textMuted,
+                    }
+                  ]}>
+                    <ShieldCheck size={40} color="#fff" strokeWidth={2.5} />
+                  </View>
+                </Animated.View>
+                <View style={styles.heroTextContainer}>
+                  <Text style={styles.heroTitle}>Real-Time</Text>
+                  <Text style={styles.heroTitle}>Security Scan</Text>
+                  <Text style={styles.heroSubtitle}>
+                    {isMonitoring ? "Active Protection" : "Protection Disabled"}
+                  </Text>
+                </View>
+              </View>
+              {isMonitoring && (
+                <View style={styles.liveBadge}>
+                  <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
+                  <Text style={styles.liveText}>LIVE</Text>
+                </View>
+              )}
             </View>
-            <View style={styles.liveBadge}>
-              <Animated.View style={[styles.liveDotSmall, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={styles.liveTextSmall}>LIVE</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.scoreCard}>
-          <View style={styles.scoreHeader}>
-            <Animated.View style={{ transform: [{ scale: isMonitoring ? pulseAnim : 1 }] }}>
-              <Shield
-                size={48}
-                color={getThreatColor(status.overall)}
-                strokeWidth={2}
-              />
-            </Animated.View>
-            <View style={styles.scoreInfo}>
-              <Text style={styles.scoreValue}>{status.score}</Text>
-              <Text style={styles.scoreLabel}>Security Score</Text>
-            </View>
-          </View>
-          
-          <View style={[styles.statusBadge, { backgroundColor: getThreatColor(status.overall) + "20" }]}>
-            <Text style={[styles.statusText, { color: getThreatColor(status.overall) }]}>
-              {getThreatLabel(status.overall)}
-            </Text>
-          </View>
-
-          <Text style={styles.scoreDescription}>
-            {status.overall === "safe" 
-              ? "Your device is well protected"
-              : status.activeThreats > 0
-              ? `${status.activeThreats} active threat${status.activeThreats > 1 ? "s" : ""} detected`
-              : "Stay vigilant for potential threats"}
-          </Text>
-
-          {status.lastScanAt && (
-            <View style={styles.lastScanContainer}>
-              <Clock size={14} color={Colors.light.textMuted} />
-              <Text style={styles.lastScanText}>
-                Last scan: {new Date(status.lastScanAt).toLocaleDateString()} at{" "}
-                {new Date(status.lastScanAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            
+            <TouchableOpacity
+              style={[
+                styles.protectionButton,
+                isMonitoring ? styles.protectionButtonActive : styles.protectionButtonInactive
+              ]}
+              onPress={handleToggleProtection}
+              activeOpacity={0.8}
+            >
+              <Lock size={20} color="#fff" strokeWidth={2.5} />
+              <Text style={styles.protectionButtonText}>
+                {isMonitoring ? "DISABLE PROTECTION" : "ENABLE PROTECTION"}
               </Text>
-            </View>
-          )}
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: Colors.light.dangerLight }]}>
-            <AlertTriangle size={24} color={Colors.light.danger} />
-            <Text style={styles.statValue}>{status.activeThreats}</Text>
-            <Text style={styles.statLabel}>Active Threats</Text>
+        <View style={styles.statsRow}>
+          <View style={[styles.statBox, { backgroundColor: Colors.light.dangerLight }]}>
+            <View style={styles.statIconContainer}>
+              <AlertTriangle size={24} color={Colors.light.danger} strokeWidth={2.5} />
+            </View>
+            <Text style={[styles.statValue, { color: Colors.light.danger }]}>{status.activeThreats}</Text>
+            <Text style={styles.statLabel}>Threats</Text>
           </View>
 
-          <View style={[styles.statCard, { backgroundColor: Colors.light.successLight }]}>
-            <CheckCircle size={24} color={Colors.light.success} />
-            <Text style={styles.statValue}>{status.threatsBlocked}</Text>
+          <View style={[styles.statBox, { backgroundColor: Colors.light.successLight }]}>
+            <View style={styles.statIconContainer}>
+              <CheckCircle size={24} color={Colors.light.success} strokeWidth={2.5} />
+            </View>
+            <Text style={[styles.statValue, { color: Colors.light.success }]}>{status.threatsBlocked}</Text>
             <Text style={styles.statLabel}>Blocked</Text>
           </View>
+
+          <View style={[styles.statBox, { backgroundColor: Colors.light.primaryLight }]}>
+            <View style={styles.statIconContainer}>
+              <Eye size={24} color={Colors.light.primary} strokeWidth={2.5} />
+            </View>
+            <Text style={[styles.statValue, { color: Colors.light.primary }]}>{activitiesMonitored}</Text>
+            <Text style={styles.statLabel}>Activities</Text>
+          </View>
         </View>
 
-        {secureModeEnabled && (
-          <View style={styles.realtimeStatsCard}>
-            <Text style={styles.realtimeTitle}>Real-Time Monitoring</Text>
-            <View style={styles.realtimeGrid}>
-              <View style={styles.realtimeItem}>
-                <Eye size={20} color={Colors.light.primary} />
-                <Text style={styles.realtimeValue}>{activitiesMonitored}</Text>
-                <Text style={styles.realtimeLabel}>Activities</Text>
+        <TouchableOpacity 
+          style={[styles.scanButton, isScanning && styles.scanButtonDisabled]}
+          onPress={handleQuickScan}
+          activeOpacity={0.8}
+          disabled={isScanning}
+        >
+          <View style={styles.scanButtonContent}>
+            <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+              <ScanSearch size={24} color="#fff" strokeWidth={2.5} />
+            </Animated.View>
+            <View style={styles.scanButtonTextContainer}>
+              <Text style={styles.scanButtonTitle}>
+                {isScanning ? "Scanning System..." : "Run Security Scan"}
+              </Text>
+              <Text style={styles.scanButtonSubtitle}>
+                {isScanning ? `${Math.round(scanProgress?.progress || 0)}% Complete` : "Deep system analysis"}
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {isScanning && scanProgress && (
+          <View style={styles.scanProgressCard}>
+            <View style={styles.scanProgressHeader}>
+              <View style={styles.scanProgressInfo}>
+                <Activity size={18} color={Colors.light.primary} strokeWidth={2.5} />
+                <Text style={styles.scanProgressTitle}>{scanProgress.status}</Text>
               </View>
-              <View style={styles.realtimeDivider} />
-              <View style={styles.realtimeItem}>
-                <Activity size={20} color={Colors.light.primary} />
-                <Text style={styles.realtimeValue}>{urlsScanned}</Text>
-                <Text style={styles.realtimeLabel}>URLs Scanned</Text>
-              </View>
+              <Text style={styles.scanProgressPercent}>{Math.round(scanProgress.progress)}%</Text>
+            </View>
+            
+            <View style={styles.progressBarOuter}>
+              <Animated.View 
+                style={[
+                  styles.progressBarInner, 
+                  { width: `${scanProgress.progress}%` }
+                ]} 
+              />
+            </View>
+            
+            <View style={styles.scanProgressDetails}>
+              <Cpu size={14} color={Colors.light.textSecondary} />
+              <Text style={styles.scanProgressItem} numberOfLines={1}>
+                {scanProgress.currentItem}
+              </Text>
+              <Text style={styles.scanProgressCount}>
+                {scanProgress.itemsScanned}/{scanProgress.totalItems}
+              </Text>
             </View>
           </View>
         )}
 
-        <TouchableOpacity 
-          style={styles.scanButton}
-          onPress={handleScan}
-          activeOpacity={0.8}
-        >
-          <Activity size={20} color="#fff" />
-          <Text style={styles.scanButtonText}>Run Quick Scan</Text>
-        </TouchableOpacity>
+        <View style={styles.monitoringSection}>
+          <Text style={styles.sectionTitle}>Real-Time Monitoring</Text>
+          <View style={styles.monitoringGrid}>
+            <View style={styles.monitoringCard}>
+              <View style={styles.monitoringIconWrapper}>
+                <Globe size={22} color={Colors.light.primary} strokeWidth={2.5} />
+              </View>
+              <Text style={styles.monitoringValue}>{urlsScanned}</Text>
+              <Text style={styles.monitoringLabel}>URLs Scanned</Text>
+              <View style={[styles.monitoringStatus, { backgroundColor: isMonitoring ? Colors.light.success : Colors.light.textMuted }]}>
+                <Text style={styles.monitoringStatusText}>
+                  {isMonitoring ? "Active" : "Inactive"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.monitoringCard}>
+              <View style={styles.monitoringIconWrapper}>
+                <Zap size={22} color={Colors.light.warning} strokeWidth={2.5} />
+              </View>
+              <Text style={styles.monitoringValue}>{activitiesMonitored}</Text>
+              <Text style={styles.monitoringLabel}>Activities</Text>
+              <View style={[styles.monitoringStatus, { backgroundColor: isMonitoring ? Colors.light.success : Colors.light.textMuted }]}>
+                <Text style={styles.monitoringStatusText}>
+                  {isMonitoring ? "Active" : "Inactive"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Threats</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Threats</Text>
+            {threats.length > 0 && (
+              <View style={styles.threatBadge}>
+                <Text style={styles.threatBadgeText}>{threats.length}</Text>
+              </View>
+            )}
+          </View>
           {recentThreats.length === 0 ? (
             <View style={styles.emptyState}>
-              <Shield size={48} color={Colors.light.textMuted} />
+              <View style={styles.emptyStateIcon}>
+                <CheckCircle size={48} color={Colors.light.success} strokeWidth={2} />
+              </View>
+              <Text style={styles.emptyStateTitle}>System Secure</Text>
               <Text style={styles.emptyStateText}>No threats detected</Text>
-              <Text style={styles.emptyStateSubtext}>Your device is secure</Text>
             </View>
           ) : (
             recentThreats.map((threat) => (
@@ -166,63 +294,78 @@ export default function DashboardScreen() {
                 <View style={[styles.threatIndicator, { backgroundColor: getThreatColor(threat.level) }]} />
                 <View style={styles.threatContent}>
                   <View style={styles.threatHeader}>
-                    <Text style={styles.threatTitle}>{threat.title}</Text>
-                    {threat.blocked && (
-                      <View style={styles.blockedBadge}>
-                        <Text style={styles.blockedText}>Blocked</Text>
-                      </View>
-                    )}
+                    <Text style={styles.threatTitle} numberOfLines={1}>{threat.title}</Text>
+                    <View style={[
+                      styles.threatLevelBadge,
+                      { backgroundColor: getThreatColor(threat.level) + "20" }
+                    ]}>
+                      <Text style={[
+                        styles.threatLevelText,
+                        { color: getThreatColor(threat.level) }
+                      ]}>
+                        {getThreatLabel(threat.level)}
+                      </Text>
+                    </View>
                   </View>
                   <Text style={styles.threatDescription} numberOfLines={2}>
                     {threat.description}
                   </Text>
-                  <Text style={styles.threatTime}>
-                    {new Date(threat.detectedAt).toLocaleString([], {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
+                  <View style={styles.threatFooter}>
+                    <Text style={styles.threatTime}>
+                      {new Date(threat.detectedAt).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Text>
+                    {threat.blocked && (
+                      <View style={styles.blockedBadge}>
+                        <Text style={styles.blockedText}>BLOCKED</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
             ))
           )}
         </View>
 
-        <View style={styles.protectionSection}>
-          <Text style={styles.sectionTitle}>Protection Features</Text>
-          <View style={styles.featureList}>
-            <View style={styles.featureItem}>
-              <CheckCircle size={20} color={secureModeEnabled ? Colors.light.success : Colors.light.textMuted} />
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureText}>Real-time URL scanning</Text>
-                {secureModeEnabled && <Text style={styles.featureStatus}>Active</Text>}
-              </View>
-            </View>
-            <View style={styles.featureItem}>
-              <CheckCircle size={20} color={secureModeEnabled ? Colors.light.success : Colors.light.textMuted} />
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureText}>Phishing detection</Text>
-                {secureModeEnabled && <Text style={styles.featureStatus}>Active</Text>}
-              </View>
-            </View>
-            <View style={styles.featureItem}>
-              <CheckCircle size={20} color={secureModeEnabled ? Colors.light.success : Colors.light.textMuted} />
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureText}>Clipboard monitoring</Text>
-                {secureModeEnabled && <Text style={styles.featureStatus}>Active</Text>}
-              </View>
-            </View>
-            <View style={styles.featureItem}>
-              <CheckCircle size={20} color={Colors.light.success} />
-              <View style={styles.featureTextContainer}>
-                <Text style={styles.featureText}>Threat history tracking</Text>
-                <Text style={styles.featureStatus}>Always On</Text>
-              </View>
+        <View style={styles.securityScoreCard}>
+          <View style={styles.scoreHeader}>
+            <Text style={styles.scoreTitle}>Security Score</Text>
+            <View style={[
+              styles.scoreValueContainer,
+              { backgroundColor: getThreatColor(status.overall) + "15" }
+            ]}>
+              <Text style={[
+                styles.scoreValue,
+                { color: getThreatColor(status.overall) }
+              ]}>
+                {status.score}
+              </Text>
             </View>
           </View>
+          <Text style={styles.scoreDescription}>
+            {status.overall === "safe" 
+              ? "Your device is well protected with real-time monitoring"
+              : status.activeThreats > 0
+              ? `${status.activeThreats} active threat${status.activeThreats > 1 ? "s" : ""} require attention`
+              : "Stay vigilant for potential security threats"}
+          </Text>
+          <View style={[
+            styles.scoreStatusBadge,
+            { backgroundColor: getThreatColor(status.overall) + "20" }
+          ]}>
+            <Text style={[
+              styles.scoreStatusText,
+              { color: getThreatColor(status.overall) }
+            ]}>
+              {getThreatLabel(status.overall).toUpperCase()}
+            </Text>
+          </View>
         </View>
+
       </ScrollView>
     </>
   );
@@ -237,306 +380,474 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  scoreCard: {
+  heroCard: {
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 16,
+    borderRadius: 28,
+    padding: 28,
+    marginBottom: 20,
     shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
   },
-  scoreHeader: {
+  heroContent: {
+    gap: 20,
+  },
+  heroTop: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  heroLeft: {
+    flexDirection: "row",
+    gap: 16,
+    flex: 1,
+  },
+  shieldContainer: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  scoreInfo: {
-    marginLeft: 16,
+  heroTextContainer: {
+    flex: 1,
+    justifyContent: "center",
   },
-  scoreValue: {
-    fontSize: 48,
-    fontWeight: "700" as const,
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: "800" as const,
     color: Colors.light.text,
-    lineHeight: 52,
+    lineHeight: 30,
+    letterSpacing: -0.5,
   },
-  scoreLabel: {
-    fontSize: 16,
-    color: Colors.light.textSecondary,
-    fontWeight: "500" as const,
-  },
-  statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: "flex-start",
-    marginBottom: 12,
-  },
-  statusText: {
+  heroSubtitle: {
     fontSize: 14,
-    fontWeight: "600" as const,
-  },
-  scoreDescription: {
-    fontSize: 15,
     color: Colors.light.textSecondary,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  lastScanContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
     marginTop: 4,
-  },
-  lastScanText: {
-    fontSize: 12,
-    color: Colors.light.textMuted,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    gap: 8,
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-    fontWeight: "500" as const,
-    textAlign: "center" as const,
-  },
-  scanButton: {
-    backgroundColor: Colors.light.primary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-    marginBottom: 24,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  scanButtonText: {
-    fontSize: 16,
     fontWeight: "600" as const,
-    color: "#fff",
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 12,
-  },
-  emptyState: {
-    backgroundColor: Colors.light.cardBackground,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: "600" as const,
-    color: Colors.light.text,
-    marginTop: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-  },
-  threatCard: {
-    backgroundColor: Colors.light.cardBackground,
-    borderRadius: 12,
-    marginBottom: 8,
-    overflow: "hidden",
-    flexDirection: "row",
-  },
-  threatIndicator: {
-    width: 4,
-  },
-  threatContent: {
-    flex: 1,
-    padding: 12,
-  },
-  threatHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  threatTitle: {
-    fontSize: 15,
-    fontWeight: "600" as const,
-    color: Colors.light.text,
-    flex: 1,
-  },
-  blockedBadge: {
-    backgroundColor: Colors.light.successLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  blockedText: {
-    fontSize: 11,
-    fontWeight: "600" as const,
-    color: Colors.light.success,
-  },
-  threatDescription: {
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  threatTime: {
-    fontSize: 11,
-    color: Colors.light.textMuted,
-  },
-  protectionSection: {
-    backgroundColor: Colors.light.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  featureList: {
-    gap: 12,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  featureTextContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  featureText: {
-    fontSize: 15,
-    color: Colors.light.text,
-    fontWeight: "500" as const,
-  },
-  featureStatus: {
-    fontSize: 11,
-    fontWeight: "700" as const,
-    color: Colors.light.success,
-    backgroundColor: Colors.light.successLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  monitoringBanner: {
-    backgroundColor: Colors.light.success,
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-    shadowColor: Colors.light.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  monitoringIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  monitoringInfo: {
-    flex: 1,
-  },
-  monitoringTitle: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    color: "#fff",
-    marginBottom: 2,
-  },
-  monitoringSubtitle: {
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.9)",
   },
   liveBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 10,
+    backgroundColor: Colors.light.danger + "15",
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.danger + "30",
   },
-  liveDotSmall: {
+  liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.light.danger,
   },
-  liveTextSmall: {
+  liveText: {
     fontSize: 11,
+    fontWeight: "800" as const,
+    color: Colors.light.danger,
+    letterSpacing: 0.8,
+  },
+  protectionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  protectionButtonActive: {
+    backgroundColor: Colors.light.danger,
+    shadowColor: Colors.light.danger,
+  },
+  protectionButtonInactive: {
+    backgroundColor: Colors.light.primary,
+    shadowColor: Colors.light.primary,
+  },
+  protectionButtonText: {
+    fontSize: 16,
     fontWeight: "700" as const,
     color: "#fff",
     letterSpacing: 0.5,
   },
-  realtimeStatsCard: {
-    backgroundColor: Colors.light.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: Colors.light.primary + "30",
+  statsRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 20,
   },
-  realtimeTitle: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 16,
+  statBox: {
+    flex: 1,
+    borderRadius: 22,
+    padding: 18,
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.04)",
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  realtimeGrid: {
+  statIconContainer: {
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: "800" as const,
+    letterSpacing: -1,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    fontWeight: "600" as const,
+  },
+  scanButton: {
+    backgroundColor: Colors.light.primary,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 20,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  scanButtonDisabled: {
+    opacity: 0.7,
+  },
+  scanButtonContent: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 16,
   },
-  realtimeItem: {
+  scanButtonTextContainer: {
     flex: 1,
+  },
+  scanButtonTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: "#fff",
+    marginBottom: 4,
+  },
+  scanButtonSubtitle: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500" as const,
+  },
+  scanProgressCard: {
+    backgroundColor: Colors.light.primaryLight,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: Colors.light.primary + "30",
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  scanProgressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  scanProgressInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  scanProgressTitle: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  scanProgressPercent: {
+    fontSize: 20,
+    fontWeight: "800" as const,
+    color: Colors.light.primary,
+  },
+  progressBarOuter: {
+    height: 12,
+    backgroundColor: "#fff",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  progressBarInner: {
+    height: "100%",
+    backgroundColor: Colors.light.primary,
+    borderRadius: 6,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  scanProgressDetails: {
+    flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  realtimeDivider: {
-    width: 1,
-    height: 60,
-    backgroundColor: Colors.light.border,
+  scanProgressItem: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    fontWeight: "500" as const,
   },
-  realtimeValue: {
-    fontSize: 28,
+  scanProgressCount: {
+    fontSize: 12,
+    color: Colors.light.textMuted,
+    fontWeight: "600" as const,
+  },
+  monitoringSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginBottom: 12,
+  },
+  monitoringGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  monitoringCard: {
+    flex: 1,
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 24,
+    padding: 22,
+    alignItems: "center",
+    gap: 10,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
+  },
+  monitoringIconWrapper: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.light.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  monitoringValue: {
+    fontSize: 32,
+    fontWeight: "800" as const,
+    color: Colors.light.text,
+    letterSpacing: -1,
+  },
+  monitoringLabel: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    fontWeight: "600" as const,
+    textAlign: "center" as const,
+  },
+  monitoringStatus: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  monitoringStatusText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  threatBadge: {
+    backgroundColor: Colors.light.danger,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  threatBadgeText: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: "#fff",
+  },
+  emptyState: {
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 22,
+    padding: 44,
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  emptyStateIcon: {
+    marginBottom: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
     fontWeight: "700" as const,
     color: Colors.light.text,
   },
-  realtimeLabel: {
-    fontSize: 12,
+  emptyStateText: {
+    fontSize: 14,
     color: Colors.light.textSecondary,
-    textAlign: "center" as const,
+  },
+  threatCard: {
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 18,
+    marginBottom: 14,
+    overflow: "hidden",
+    flexDirection: "row",
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
+  },
+  threatIndicator: {
+    width: 5,
+  },
+  threatContent: {
+    flex: 1,
+    padding: 16,
+  },
+  threatHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  threatTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+  },
+  threatLevelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  threatLevelText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    letterSpacing: 0.5,
+  },
+  threatDescription: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  threatFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  threatTime: {
+    fontSize: 11,
+    color: Colors.light.textMuted,
+    fontWeight: "500" as const,
+  },
+  blockedBadge: {
+    backgroundColor: Colors.light.successLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  blockedText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: Colors.light.success,
+    letterSpacing: 0.5,
+  },
+  securityScoreCard: {
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 24,
+    padding: 26,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
+  },
+  scoreHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  scoreTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+  },
+  scoreValueContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  scoreValue: {
+    fontSize: 32,
+    fontWeight: "800" as const,
+  },
+  scoreDescription: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  scoreStatusBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  scoreStatusText: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    letterSpacing: 0.8,
   },
 });
