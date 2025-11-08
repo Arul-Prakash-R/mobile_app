@@ -43,3 +43,17 @@ export interface FileScanResult {
   threats: string[];
   scannedAt: Date;
 }
+
+export interface ScanProgress {
+  status: string;
+  progress: number;
+  currentItem: string;
+  itemsScanned: number;
+  totalItems: number;
+}
+
+export interface ScanResult {
+  threatsFound: Omit<Threat, "id" | "detectedAt">[];
+  itemsScanned: number;
+  scanDuration: number;
+}
