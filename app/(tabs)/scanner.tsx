@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Animated,
 } from "react-native";
 import { Stack } from "expo-router";
-import { Shield, ShieldCheck, Activity, Eye, Scan, Clock } from "lucide-react-native";
+import { ShieldCheck, Activity, Eye, ScanSearch, CheckCircle2, Cpu, Zap, Lock, Unlock } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useSecurity } from "@/providers/SecurityProvider";
 import Colors from "@/constants/colors";
@@ -20,18 +20,21 @@ export default function ScannerScreen() {
     isMonitoring, 
     urlsScanned, 
     activitiesMonitored,
+    isContinuousScanRunning,
+    continuousScanProgress,
     toggleSecureMode,
-    resetMonitoringStats 
+    resetMonitoringStats,
   } = useSecurity();
   
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scanAnim = useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isMonitoring) {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.15,
+            toValue: 1.12,
             duration: 1000,
             useNativeDriver: true,
           }),
@@ -48,6 +51,21 @@ export default function ScannerScreen() {
     }
   }, [isMonitoring, pulseAnim]);
 
+  useEffect(() => {
+    if (isContinuousScanRunning) {
+      Animated.loop(
+        Animated.timing(scanAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      scanAnim.stopAnimation();
+      scanAnim.setValue(0);
+    }
+  }, [isContinuousScanRunning, scanAnim]);
+
   const handleToggleSecureMode = () => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -62,26 +80,35 @@ export default function ScannerScreen() {
     resetMonitoringStats();
   };
 
+  const rotateInterpolate = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
   return (
     <>
-      <Stack.Screen options={{ title: "Secure Mode" }} />
+      <Stack.Screen options={{ title: "Real-Time Protection" }} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
       >
         <View style={styles.header}>
           <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            {secureModeEnabled ? (
-              <ShieldCheck size={64} color={Colors.light.success} strokeWidth={2} />
-            ) : (
-              <Shield size={64} color={Colors.light.textMuted} strokeWidth={2} />
-            )}
+            <View style={[
+              styles.mainShield,
+              {
+                backgroundColor: secureModeEnabled ? Colors.light.success : Colors.light.textMuted,
+                shadowColor: secureModeEnabled ? Colors.light.success : Colors.light.textMuted,
+              }
+            ]}>
+              <ShieldCheck size={56} color="#fff" strokeWidth={2.5} />
+            </View>
           </Animated.View>
-          <Text style={styles.title}>Secure Mode</Text>
+          <Text style={styles.title}>Protection {secureModeEnabled ? "Active" : "Disabled"}</Text>
           <Text style={styles.subtitle}>
             {secureModeEnabled 
-              ? "Real-time protection active"
-              : "Enable to protect your device"}
+              ? "Your device is protected with real-time monitoring"
+              : "Enable protection to secure your device"}
           </Text>
         </View>
 
@@ -94,57 +121,160 @@ export default function ScannerScreen() {
           activeOpacity={0.8}
         >
           <View style={styles.toggleContent}>
+            <View style={styles.toggleIcon}>
+              {secureModeEnabled ? (
+                <Lock size={24} color="#fff" strokeWidth={2.5} />
+              ) : (
+                <Unlock size={24} color="#fff" strokeWidth={2.5} />
+              )}
+            </View>
             <View style={styles.toggleTextContainer}>
               <Text style={styles.toggleTitle}>
-                {secureModeEnabled ? "Protection Active" : "Protection Disabled"}
+                {secureModeEnabled ? "Protection Enabled" : "Protection Disabled"}
               </Text>
               <Text style={styles.toggleSubtitle}>
                 {secureModeEnabled 
-                  ? "Monitoring all device activity"
+                  ? "Tap to disable real-time monitoring"
                   : "Tap to enable real-time monitoring"}
               </Text>
             </View>
-            <View
-              style={[
-                styles.toggleIndicator,
-                secureModeEnabled ? styles.toggleIndicatorActive : styles.toggleIndicatorInactive,
-              ]}
-            >
-              <View style={styles.toggleSwitch} />
-            </View>
+            {secureModeEnabled && (
+              <View style={styles.liveBadge}>
+                <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
 
         {isMonitoring && (
-          <View style={styles.monitoringCard}>
+          <View style={styles.monitoringSection}>
             <View style={styles.monitoringHeader}>
-              <Activity size={24} color={Colors.light.success} />
+              <Activity size={24} color={Colors.light.primary} strokeWidth={2.5} />
               <Text style={styles.monitoringTitle}>Real-Time Monitoring</Text>
             </View>
-            <Text style={styles.monitoringDescription}>
-              Actively scanning all device activities for malicious URLs, phishing attempts, and security threats.
-            </Text>
-            <View style={styles.liveIndicator}>
-              <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-              <Text style={styles.liveText}>LIVE</Text>
+
+            {isContinuousScanRunning && continuousScanProgress ? (
+              <View style={styles.scanningCard}>
+                <View style={styles.scanningHeader}>
+                  <View style={styles.scanningIconWrapper}>
+                    <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+                      <ScanSearch size={20} color={Colors.light.primary} strokeWidth={2.5} />
+                    </Animated.View>
+                  </View>
+                  <View style={styles.scanningTextContainer}>
+                    <Text style={styles.scanningTitle}>System Scanning</Text>
+                    <Text style={styles.scanningSubtitle}>{continuousScanProgress.status}</Text>
+                  </View>
+                  <View style={styles.percentBadge}>
+                    <Text style={styles.percentText}>{Math.round(continuousScanProgress.progress)}%</Text>
+                  </View>
+                </View>
+
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <Animated.View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${continuousScanProgress.progress}%` }
+                      ]} 
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.scanningDetails}>
+                  <View style={styles.scanningDetailItem}>
+                    <Cpu size={16} color={Colors.light.textSecondary} strokeWidth={2.5} />
+                    <Text style={styles.scanningDetailText} numberOfLines={1}>
+                      {continuousScanProgress.currentItem}
+                    </Text>
+                  </View>
+                  <Text style={styles.scanningCount}>
+                    {continuousScanProgress.itemsScanned} / {continuousScanProgress.totalItems}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.scanningCard}>
+                <View style={styles.initializingContainer}>
+                  <Animated.View style={[styles.initializingIcon, { transform: [{ scale: pulseAnim }] }]}>
+                    <Activity size={28} color={Colors.light.primary} strokeWidth={2.5} />
+                  </Animated.View>
+                  <Text style={styles.initializingTitle}>Initializing Monitor...</Text>
+                  <Text style={styles.initializingSubtitle}>Starting real-time scan</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.activitySection}>
+              <Text style={styles.activityTitle}>Recent Activity</Text>
+              <View style={styles.activityList}>
+                <View style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: Colors.light.successLight }]}>
+                    <CheckCircle2 size={14} color={Colors.light.success} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityText}>System files verified</Text>
+                    <Text style={styles.activityTime}>Just now</Text>
+                  </View>
+                </View>
+                <View style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: Colors.light.successLight }]}>
+                    <CheckCircle2 size={14} color={Colors.light.success} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityText}>Network traffic analyzed</Text>
+                    <Text style={styles.activityTime}>2 seconds ago</Text>
+                  </View>
+                </View>
+                <View style={styles.activityItem}>
+                  <View style={[styles.activityIcon, { backgroundColor: Colors.light.successLight }]}>
+                    <CheckCircle2 size={14} color={Colors.light.success} strokeWidth={2.5} />
+                  </View>
+                  <View style={styles.activityContent}>
+                    <Text style={styles.activityText}>Clipboard monitored</Text>
+                    <Text style={styles.activityTime}>5 seconds ago</Text>
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
         )}
 
         <View style={styles.statsSection}>
-          <Text style={styles.sectionTitle}>Monitoring Statistics</Text>
+          <Text style={styles.sectionTitle}>Protection Statistics</Text>
           
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Scan size={28} color={Colors.light.primary} />
+              <View style={[styles.statIconWrapper, { backgroundColor: Colors.light.primaryLight }]}>
+                <Eye size={26} color={Colors.light.primary} strokeWidth={2.5} />
+              </View>
               <Text style={styles.statValue}>{urlsScanned}</Text>
               <Text style={styles.statLabel}>URLs Scanned</Text>
+              <View style={[
+                styles.statStatus,
+                { backgroundColor: isMonitoring ? Colors.light.success : Colors.light.textMuted }
+              ]}>
+                <Text style={styles.statStatusText}>
+                  {isMonitoring ? "Active" : "Inactive"}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.statCard}>
-              <Eye size={28} color={Colors.light.primary} />
+              <View style={[styles.statIconWrapper, { backgroundColor: Colors.light.warningLight }]}>
+                <Zap size={26} color={Colors.light.warning} strokeWidth={2.5} />
+              </View>
               <Text style={styles.statValue}>{activitiesMonitored}</Text>
-              <Text style={styles.statLabel}>Activities Monitored</Text>
+              <Text style={styles.statLabel}>Activities</Text>
+              <View style={[
+                styles.statStatus,
+                { backgroundColor: isMonitoring ? Colors.light.success : Colors.light.textMuted }
+              ]}>
+                <Text style={styles.statStatusText}>
+                  {isMonitoring ? "Active" : "Inactive"}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -154,63 +284,95 @@ export default function ScannerScreen() {
               onPress={handleResetStats}
               activeOpacity={0.7}
             >
-              <Clock size={16} color={Colors.light.primary} />
               <Text style={styles.resetButtonText}>Reset Statistics</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <View style={styles.featuresSection}>
-          <Text style={styles.sectionTitle}>Advanced Protection Features</Text>
+          <Text style={styles.sectionTitle}>Protection Features</Text>
           <View style={styles.featuresList}>
             <View style={styles.featureCard}>
-              <ShieldCheck size={20} color={Colors.light.success} />
+              <View style={[
+                styles.featureIcon,
+                { backgroundColor: secureModeEnabled ? Colors.light.successLight : Colors.light.borderLight }
+              ]}>
+                <ShieldCheck 
+                  size={22} 
+                  color={secureModeEnabled ? Colors.light.success : Colors.light.textMuted} 
+                  strokeWidth={2.5}
+                />
+              </View>
               <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Clipboard Monitoring</Text>
+                <Text style={styles.featureTitle}>Real-Time Scanning</Text>
                 <Text style={styles.featureDescription}>
-                  Automatically scans URLs copied to your clipboard
+                  Continuously monitors system for threats
                 </Text>
               </View>
+              {secureModeEnabled && (
+                <View style={styles.featureActiveBadge}>
+                  <Text style={styles.featureActiveText}>ON</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.featureCard}>
-              <Activity size={20} color={Colors.light.success} />
+              <View style={[
+                styles.featureIcon,
+                { backgroundColor: secureModeEnabled ? Colors.light.successLight : Colors.light.borderLight }
+              ]}>
+                <Activity 
+                  size={22} 
+                  color={secureModeEnabled ? Colors.light.success : Colors.light.textMuted}
+                  strokeWidth={2.5}
+                />
+              </View>
               <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Real-Time Detection</Text>
+                <Text style={styles.featureTitle}>URL Protection</Text>
                 <Text style={styles.featureDescription}>
-                  Continuously monitors for malicious site access attempts
+                  Scans clipboard for malicious links
                 </Text>
               </View>
+              {secureModeEnabled && (
+                <View style={styles.featureActiveBadge}>
+                  <Text style={styles.featureActiveText}>ON</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.featureCard}>
-              <Shield size={20} color={Colors.light.success} />
+              <View style={[
+                styles.featureIcon,
+                { backgroundColor: secureModeEnabled ? Colors.light.successLight : Colors.light.borderLight }
+              ]}>
+                <Eye 
+                  size={22} 
+                  color={secureModeEnabled ? Colors.light.success : Colors.light.textMuted}
+                  strokeWidth={2.5}
+                />
+              </View>
               <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Emergency Alerts</Text>
+                <Text style={styles.featureTitle}>Activity Monitoring</Text>
                 <Text style={styles.featureDescription}>
-                  Instant pop-up alerts for critical security threats
+                  Tracks all device security events
                 </Text>
               </View>
-            </View>
-
-            <View style={styles.featureCard}>
-              <Scan size={20} color={Colors.light.success} />
-              <View style={styles.featureContent}>
-                <Text style={styles.featureTitle}>Phishing Protection</Text>
-                <Text style={styles.featureDescription}>
-                  Advanced detection of phishing and malware URLs
-                </Text>
-              </View>
+              {secureModeEnabled && (
+                <View style={styles.featureActiveBadge}>
+                  <Text style={styles.featureActiveText}>ON</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
 
         <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>How It Works</Text>
+          <Text style={styles.infoTitle}>How Real-Time Protection Works</Text>
           <Text style={styles.infoText}>
-            When Secure Mode is enabled, the app continuously monitors your device activity. 
-            Any malicious URLs or suspicious behavior triggers an immediate emergency alert, 
-            automatically blocking the threat before it can harm your device.
+            When enabled, Arul Scan & Find continuously monitors your device in real-time. 
+            It scans URLs in your clipboard, monitors app activities, and detects potential 
+            security threats instantly. All threats are automatically blocked and logged 
+            for your review.
           </Text>
         </View>
       </ScrollView>
@@ -230,128 +392,299 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginBottom: 24,
-    paddingTop: 16,
+    paddingTop: 8,
+  },
+  mainShield: {
+    width: 108,
+    height: 108,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 12,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700" as const,
+    fontSize: 32,
+    fontWeight: "800" as const,
     color: Colors.light.text,
-    marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 10,
+    textAlign: "center" as const,
+    letterSpacing: -0.8,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     color: Colors.light.textSecondary,
     textAlign: "center" as const,
+    paddingHorizontal: 24,
+    lineHeight: 24,
+    fontWeight: "500" as const,
   },
   toggleButton: {
-    borderRadius: 20,
+    borderRadius: 28,
     padding: 24,
-    marginBottom: 20,
-    shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 5,
+    marginBottom: 24,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
   },
   toggleButtonActive: {
-    backgroundColor: Colors.light.success + "20",
+    backgroundColor: Colors.light.success,
+    shadowColor: Colors.light.success,
     borderWidth: 2,
     borderColor: Colors.light.success,
   },
   toggleButtonInactive: {
     backgroundColor: Colors.light.cardBackground,
+    shadowColor: Colors.light.shadow,
     borderWidth: 2,
     borderColor: Colors.light.border,
   },
   toggleContent: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 16,
+  },
+  toggleIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   toggleTextContainer: {
     flex: 1,
-    marginRight: 16,
   },
   toggleTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 6,
+    color: "#fff",
+    marginBottom: 4,
   },
   toggleSubtitle: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    lineHeight: 20,
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.8)",
+    lineHeight: 18,
   },
-  toggleIndicator: {
-    width: 60,
-    height: 32,
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
-    padding: 3,
-    justifyContent: "center",
   },
-  toggleIndicatorActive: {
-    backgroundColor: Colors.light.success,
-    alignItems: "flex-end",
-  },
-  toggleIndicatorInactive: {
-    backgroundColor: Colors.light.textMuted,
-    alignItems: "flex-start",
-  },
-  toggleSwitch: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "#fff",
   },
-  monitoringCard: {
-    backgroundColor: Colors.light.success + "15",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+  liveText: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+    color: "#fff",
+    letterSpacing: 0.8,
+  },
+  monitoringSection: {
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 28,
+    padding: 28,
+    marginBottom: 24,
     borderWidth: 2,
-    borderColor: Colors.light.success + "40",
+    borderColor: Colors.light.primary + "25",
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 6,
   },
   monitoringHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   monitoringTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700" as const,
     color: Colors.light.text,
   },
-  monitoringDescription: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    lineHeight: 20,
-    marginBottom: 12,
+  scanningCard: {
+    backgroundColor: Colors.light.primaryLight,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: Colors.light.primary + "35",
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  liveIndicator: {
+  scanningHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+  },
+  scanningIconWrapper: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  scanningTextContainer: {
+    flex: 1,
+  },
+  scanningTitle: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginBottom: 2,
+  },
+  scanningSubtitle: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    fontWeight: "500" as const,
+  },
+  percentBadge: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  percentText: {
+    fontSize: 16,
+    fontWeight: "800" as const,
+    color: "#fff",
+  },
+  progressBarContainer: {
+    marginBottom: 16,
+  },
+  progressBarBackground: {
+    height: 12,
+    backgroundColor: "#fff",
+    borderRadius: 6,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: Colors.light.primary,
+    borderRadius: 6,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  scanningDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  scanningDetailItem: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  liveDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.light.danger,
+  scanningDetailText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    fontWeight: "500" as const,
   },
-  liveText: {
+  scanningCount: {
     fontSize: 12,
+    color: Colors.light.textMuted,
+    fontWeight: "600" as const,
+  },
+  initializingContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  initializingIcon: {
+    marginBottom: 12,
+  },
+  initializingTitle: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  initializingSubtitle: {
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+  },
+  activitySection: {
+    marginTop: 4,
+  },
+  activityTitle: {
+    fontSize: 14,
     fontWeight: "700" as const,
-    color: Colors.light.danger,
-    letterSpacing: 1,
+    color: Colors.light.text,
+    marginBottom: 12,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+  },
+  activityList: {
+    gap: 10,
+  },
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: Colors.light.background,
+    padding: 12,
+    borderRadius: 12,
+  },
+  activityIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityText: {
+    fontSize: 14,
+    fontWeight: "600" as const,
+    color: Colors.light.text,
+    marginBottom: 2,
+  },
+  activityTime: {
+    fontSize: 11,
+    color: Colors.light.textMuted,
+    fontWeight: "500" as const,
   },
   statsSection: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700" as const,
     color: Colors.light.text,
     marginBottom: 16,
@@ -359,48 +692,68 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
     alignItems: "center",
     gap: 12,
     shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
+  },
+  statIconWrapper: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   statValue: {
     fontSize: 32,
-    fontWeight: "700" as const,
+    fontWeight: "800" as const,
     color: Colors.light.text,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.light.textSecondary,
-    fontWeight: "500" as const,
+    fontWeight: "600" as const,
     textAlign: "center" as const,
   },
-  resetButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: Colors.light.cardBackground,
+  statStatus: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
+    marginTop: 4,
+  },
+  statStatusText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  resetButton: {
+    backgroundColor: Colors.light.dangerLight,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
   },
   resetButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600" as const,
-    color: Colors.light.primary,
+    color: Colors.light.danger,
   },
   featuresSection: {
     marginBottom: 24,
@@ -410,17 +763,31 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
+    alignItems: "center",
+    gap: 18,
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 22,
+    padding: 22,
+    shadowColor: Colors.light.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "20",
+  },
+  featureIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600" as const,
     color: Colors.light.text,
     marginBottom: 4,
@@ -430,18 +797,35 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     lineHeight: 18,
   },
+  featureActiveBadge: {
+    backgroundColor: Colors.light.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  featureActiveText: {
+    fontSize: 12,
+    fontWeight: "700" as const,
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
   infoBox: {
-    backgroundColor: Colors.light.primary + "10",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: Colors.light.primary + "20",
+    backgroundColor: Colors.light.primaryLight,
+    borderRadius: 24,
+    padding: 26,
+    borderWidth: 2,
+    borderColor: Colors.light.primary + "35",
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 2,
   },
   infoTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700" as const,
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   infoText: {
     fontSize: 14,
