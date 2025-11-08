@@ -4,9 +4,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import { AppState, Platform } from "react-native";
 import * as Location from "expo-location";
-import { Threat, SecurityStatus } from "@/types/security";
-import { calculateSecurityScore, getSecurityLevel, scanURL } from "@/utils/security";
+import { Threat, SecurityStatus, ScanProgress } from "@/types/security";
+import { calculateSecurityScore, getSecurityLevel, scanURL, performQuickScan, performFullScan } from "@/utils/security";
 import * as Haptics from "expo-haptics";
+import emailjs from '@emailjs/browser';
 
 const THREATS_STORAGE_KEY = "@security_threats";
 const SECURE_MODE_KEY = "@secure_mode_enabled";
@@ -18,6 +19,14 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
   const [threats, setThreats] = useState<Threat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [emergencyAlert, setEmergencyAlert] = useState<Threat | null>(null);
+  const [maliciousAlert, setMaliciousAlert] = useState<{
+    visible: boolean;
+    title: string;
+    description: string;
+    url?: string;
+    appName?: string;
+    type: "website" | "app";
+  } | null>(null);
   const [secureModeEnabled, setSecureModeEnabled] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [urlsScanned, setUrlsScanned] = useState(0);
@@ -27,9 +36,16 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
   const [targetEmail, setTargetEmail] = useState("");
   const [lastLocationSent, setLastLocationSent] = useState<Date | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [isContinuousScanRunning, setIsContinuousScanRunning] = useState(false);
+  const [continuousScanProgress, setContinuousScanProgress] = useState<ScanProgress | null>(null);
   const monitoringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const continuousScanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef(AppState.currentState);
+  const appStateSubscriptionRef = useRef<ReturnType<typeof AppState.addEventListener> | null>(null);
+  const threatsRef = useRef<Threat[]>(threats);
 
   useEffect(() => {
     loadThreats();
@@ -40,16 +56,8 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
   }, []);
 
   useEffect(() => {
-    if (secureModeEnabled) {
-      startMonitoring();
-    } else {
-      stopMonitoring();
-    }
-
-    return () => {
-      stopMonitoring();
-    };
-  }, [secureModeEnabled]);
+    threatsRef.current = threats;
+  }, [threats]);
 
   const loadThreats = async () => {
     try {
@@ -220,6 +228,51 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
     setEmergencyAlert(null);
   }, []);
 
+  const showMaliciousAlert = useCallback((data: {
+    title: string;
+    description: string;
+    url?: string;
+    appName?: string;
+    type: "website" | "app";
+  }) => {
+    setMaliciousAlert({
+      visible: true,
+      ...data,
+    });
+    
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+    
+    console.log(`🚨 MALICIOUS ${data.type.toUpperCase()} DETECTED: ${data.title}`);
+  }, []);
+
+  const dismissMaliciousAlert = useCallback(() => {
+    setMaliciousAlert(null);
+  }, []);
+
+  const blockMalicious = useCallback(() => {
+    if (maliciousAlert) {
+      const newThreat: Threat = {
+        id: Date.now().toString(),
+        type: maliciousAlert.type === "website" ? "malicious_url" : "malware",
+        level: "critical",
+        title: maliciousAlert.title,
+        description: maliciousAlert.description,
+        source: maliciousAlert.url || maliciousAlert.appName || "Unknown",
+        blocked: true,
+        detectedAt: new Date(),
+      };
+
+      const updatedThreats = [newThreat, ...threats];
+      setThreats(updatedThreats);
+      saveThreats(updatedThreats);
+      
+      console.log(`✅ Blocked and logged threat: ${maliciousAlert.title}`);
+    }
+    setMaliciousAlert(null);
+  }, [maliciousAlert, threats]);
+
   const toggleSecureMode = useCallback(async () => {
     const newState = !secureModeEnabled;
     setSecureModeEnabled(newState);
@@ -247,31 +300,35 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
         if (!scanResult.isSafe) {
           console.log(`⚠️ MALICIOUS URL DETECTED IN CLIPBOARD!`);
           
-          const newThreat: Threat = {
-            id: Date.now().toString(),
-            type: "malicious_url",
-            level: scanResult.threatLevel,
-            title: "Malicious URL Detected in Clipboard",
-            description: `${scanResult.url} - ${scanResult.threats[0]}`,
-            source: scanResult.url,
-            blocked: true,
-            detectedAt: new Date(),
-          };
-
-          const updatedThreats = [newThreat, ...threats];
-          setThreats(updatedThreats);
-          await saveThreats(updatedThreats);
-
           if (scanResult.threatLevel === "critical" || scanResult.threatLevel === "high") {
-            setEmergencyAlert(newThreat);
-            if (Platform.OS !== "web") {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            }
+            showMaliciousAlert({
+              title: "Malicious Website Blocked",
+              description: `We detected a dangerous website in your clipboard. This site may attempt to steal your personal information.`,
+              url: text,
+              type: "website",
+            });
+          } else {
+            const newThreat: Threat = {
+              id: Date.now().toString(),
+              type: "malicious_url",
+              level: scanResult.threatLevel,
+              title: "Suspicious URL Detected in Clipboard",
+              description: `${scanResult.url} - ${scanResult.threats[0]}`,
+              source: scanResult.url,
+              blocked: true,
+              detectedAt: new Date(),
+            };
+
+            const currentThreats = threatsRef.current;
+            const updatedThreats = [newThreat, ...currentThreats];
+            setThreats(updatedThreats);
+            await saveThreats(updatedThreats);
           }
         }
       }
     } catch (error) {
-      console.error("Clipboard check error:", error);
+      // Silently handle clipboard permission errors
+      // This is expected when user denies clipboard access
     }
   };
 
@@ -279,49 +336,22 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
     const newActivities = activitiesMonitored + 1;
     setActivitiesMonitored(newActivities);
     await saveMonitoringStats(urlsScanned, newActivities);
-
-    if (Math.random() < 0.03) {
-      const maliciousUrls = [
-        "http://verify-paypal-account.suspicious-site.com/login",
-        "https://download-crack-keygen.xyz/malware.exe",
-        "http://urgent-amazon-verify.phishing.net/account",
-        "https://apple-id-locked-unusual-activity.scam.com/verify",
-        "http://banking-urgent-action-required.fraud.net/login",
-      ];
-
-      const randomUrl = maliciousUrls[Math.floor(Math.random() * maliciousUrls.length)];
-      console.log(`🚨 SIMULATED: Malicious activity detected - attempted access to: ${randomUrl}`);
-
-      const scanResult = scanURL(randomUrl);
-      const newThreat: Threat = {
-        id: Date.now().toString(),
-        type: "malicious_url",
-        level: scanResult.threatLevel,
-        title: "Malicious Site Access Blocked",
-        description: `Attempted to access ${randomUrl.split("/")[2]} - ${scanResult.threats[0]}`,
-        source: randomUrl,
-        blocked: true,
-        detectedAt: new Date(),
-      };
-
-      const updatedThreats = [newThreat, ...threats];
-      setThreats(updatedThreats);
-      await saveThreats(updatedThreats);
-
-      if (scanResult.threatLevel === "critical" || scanResult.threatLevel === "high") {
-        setEmergencyAlert(newThreat);
-        if (Platform.OS !== "web") {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        }
-      }
-
-      const newUrlsScanned = urlsScanned + 1;
-      setUrlsScanned(newUrlsScanned);
-      await saveMonitoringStats(newUrlsScanned, newActivities);
-    }
   };
 
-  const startMonitoring = () => {
+  const stopMonitoring = useCallback(() => {
+    if (monitoringIntervalRef.current) {
+      clearInterval(monitoringIntervalRef.current);
+      monitoringIntervalRef.current = null;
+      setIsMonitoring(false);
+      console.log("🛡️ Real-time monitoring STOPPED");
+    }
+    if (appStateSubscriptionRef.current) {
+      appStateSubscriptionRef.current.remove();
+      appStateSubscriptionRef.current = null;
+    }
+  }, []);
+
+  const startMonitoring = useCallback(() => {
     if (monitoringIntervalRef.current) return;
     
     setIsMonitoring(true);
@@ -332,27 +362,87 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
       simulateActivityMonitoring();
     }, 5000) as unknown as ReturnType<typeof setInterval>;
 
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
+    appStateSubscriptionRef.current = AppState.addEventListener("change", (nextAppState) => {
       if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
         console.log("App returned to foreground - checking for threats");
         checkClipboard();
       }
       appStateRef.current = nextAppState;
     });
+  }, []);
 
-    return () => {
-      subscription.remove();
+  const startContinuousScan = useCallback(() => {
+    if (continuousScanIntervalRef.current) return;
+    
+    console.log("🔄 Continuous scanning STARTED - scanning every second for real-time protection");
+    
+    const runScan = async () => {
+      if (!secureModeEnabled) {
+        return;
+      }
+      
+      if (isContinuousScanRunning) return;
+      
+      console.log("🔍 Running continuous background scan...");
+      
+      setIsContinuousScanRunning(true);
+      
+      try {
+        const results = await performFullScan((progress: ScanProgress) => {
+          setContinuousScanProgress(progress);
+        });
+
+        if (results.threatsFound.length > 0) {
+          const newThreats = results.threatsFound.map((threat: Omit<Threat, "id" | "detectedAt">) => ({
+            ...threat,
+            id: Date.now().toString() + Math.random(),
+            detectedAt: new Date(),
+          }));
+
+          const criticalThreat = newThreats.find(
+            (t: Threat) => t.level === "critical" || t.level === "high"
+          );
+
+          if (criticalThreat) {
+            showMaliciousAlert({
+              title: criticalThreat.type === "malicious_url" ? "Malicious Website Detected" : "Suspicious App Detected",
+              description: criticalThreat.description,
+              url: criticalThreat.type === "malicious_url" ? criticalThreat.source : undefined,
+              appName: criticalThreat.type !== "malicious_url" ? criticalThreat.source : undefined,
+              type: criticalThreat.type === "malicious_url" ? "website" : "app",
+            });
+          } else {
+            const currentThreats = threatsRef.current;
+            const updatedThreats = [...newThreats, ...currentThreats];
+            setThreats(updatedThreats);
+            await saveThreats(updatedThreats);
+          }
+        }
+
+        const newUrlsScanned = urlsScanned + results.itemsScanned;
+        setUrlsScanned(newUrlsScanned);
+        await saveMonitoringStats(newUrlsScanned, activitiesMonitored);
+      } catch (error) {
+        console.error("Continuous scan failed:", error);
+      } finally {
+        setIsContinuousScanRunning(false);
+      }
     };
-  };
+    
+    continuousScanIntervalRef.current = setInterval(() => {
+      runScan();
+    }, 1000) as unknown as ReturnType<typeof setInterval>;
+  }, [secureModeEnabled, isContinuousScanRunning, urlsScanned, activitiesMonitored]);
 
-  const stopMonitoring = () => {
-    if (monitoringIntervalRef.current) {
-      clearInterval(monitoringIntervalRef.current);
-      monitoringIntervalRef.current = null;
-      setIsMonitoring(false);
-      console.log("🛡️ Real-time monitoring STOPPED");
+  const stopContinuousScan = useCallback(() => {
+    if (continuousScanIntervalRef.current) {
+      clearInterval(continuousScanIntervalRef.current);
+      continuousScanIntervalRef.current = null;
+      setIsContinuousScanRunning(false);
+      setContinuousScanProgress(null);
+      console.log("🔄 Continuous scanning STOPPED");
     }
-  };
+  }, []);
 
   const resetMonitoringStats = useCallback(async () => {
     setUrlsScanned(0);
@@ -404,22 +494,36 @@ export const [SecurityProvider, useSecurity] = createContextHook(() => {
     timestamp: Date;
   }) => {
     try {
-      const message = `
-Find My Device - Location Update
-
-Latitude: ${locationData.latitude}
-Longitude: ${locationData.longitude}
-Accuracy: ${locationData.accuracy ? `${locationData.accuracy.toFixed(2)}m` : "Unknown"}
-Timestamp: ${locationData.timestamp.toLocaleString()}
-
-Google Maps: https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}
-Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.longitude}
-      `;
+      const googleMapsLink = `https://www.google.com/maps?q=${locationData.latitude},${locationData.longitude}`;
+      const appleMapsLink = `http://maps.apple.com/?ll=${locationData.latitude},${locationData.longitude}`;
 
       console.log("📧 Sending location to:", targetEmail);
-      console.log("Location data:", message);
-      
-      console.log("✉️ Email sent successfully (simulated)");
+      console.log("Location data:", {
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        accuracy: locationData.accuracy,
+        timestamp: locationData.timestamp.toLocaleString(),
+      });
+
+      const templateParams = {
+        to_email: targetEmail,
+        device_name: "My Device",
+        latitude: locationData.latitude.toFixed(6),
+        longitude: locationData.longitude.toFixed(6),
+        accuracy: locationData.accuracy ? `${locationData.accuracy.toFixed(2)}m` : "Unknown",
+        timestamp: locationData.timestamp.toLocaleString(),
+        google_maps_link: googleMapsLink,
+        apple_maps_link: appleMapsLink,
+      };
+
+      const response = await emailjs.send(
+        'service_muid74x',
+        'template_6u3mi8b',
+        templateParams,
+        '8HDuCD7IjRceaYMQ9'
+      );
+
+      console.log("✉️ Email sent successfully:", response.status, response.text);
       
       return true;
     } catch (error) {
@@ -466,7 +570,15 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     }
   };
 
-  const startLocationTracking = () => {
+  const stopLocationTracking = useCallback(() => {
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+      console.log("📍 Location tracking STOPPED");
+    }
+  }, []);
+
+  const startLocationTracking = useCallback(() => {
     if (locationIntervalRef.current) return;
     
     console.log("📍 Location tracking STARTED - will send every 6 hours");
@@ -476,16 +588,8 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     locationIntervalRef.current = setInterval(async () => {
       console.log("⏰ 6 hours passed - sending location update");
       await sendLocationNow();
-    }, SIX_HOURS);
-  };
-
-  const stopLocationTracking = () => {
-    if (locationIntervalRef.current) {
-      clearInterval(locationIntervalRef.current);
-      locationIntervalRef.current = null;
-      console.log("📍 Location tracking STOPPED");
-    }
-  };
+    }, SIX_HOURS) as unknown as ReturnType<typeof setInterval>;
+  }, [sendLocationNow]);
 
   useEffect(() => {
     if (locationTrackingEnabled && targetEmail && locationPermissionStatus === "granted") {
@@ -497,7 +601,7 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     return () => {
       stopLocationTracking();
     };
-  }, [locationTrackingEnabled, targetEmail, locationPermissionStatus]);
+  }, [locationTrackingEnabled, targetEmail, locationPermissionStatus, startLocationTracking, stopLocationTracking]);
 
   const toggleLocationTracking = async (email?: string): Promise<{ success: boolean; error?: string }> => {
     const newState = !locationTrackingEnabled;
@@ -533,10 +637,148 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     return { success: true };
   };
 
+  useEffect(() => {
+    if (secureModeEnabled) {
+      startMonitoring();
+      startContinuousScan();
+    } else {
+      stopMonitoring();
+      stopContinuousScan();
+      setIsScanning(false);
+      setScanProgress(null);
+      console.log("🛑 Scanning stopped - Protection disabled");
+    }
+
+    return () => {
+      stopMonitoring();
+      stopContinuousScan();
+    };
+  }, [secureModeEnabled, startMonitoring, startContinuousScan, stopMonitoring, stopContinuousScan]);
+
   const updateTargetEmail = async (email: string) => {
     setTargetEmail(email);
     await saveTargetEmail(email);
   };
+
+  const runQuickScan = useCallback(async (): Promise<void> => {
+    if (isScanning) return;
+    
+    setIsScanning(true);
+    console.log("🔍 Starting Quick Scan...");
+    
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    try {
+      const results = await performQuickScan((progress: ScanProgress) => {
+        setScanProgress(progress);
+      });
+
+      console.log(`✅ Quick Scan completed: ${results.threatsFound.length} threats found`);
+
+      if (results.threatsFound.length > 0) {
+        const newThreats = results.threatsFound.map((threat: Omit<Threat, "id" | "detectedAt">) => ({
+          ...threat,
+          id: Date.now().toString() + Math.random(),
+          detectedAt: new Date(),
+        }));
+
+        const currentThreats = threatsRef.current;
+        const updatedThreats = [...newThreats, ...currentThreats];
+        setThreats(updatedThreats);
+        await saveThreats(updatedThreats);
+
+        const criticalThreat = newThreats.find(
+          (t: Threat) => t.level === "critical" || t.level === "high"
+        );
+
+        if (criticalThreat) {
+          setEmergencyAlert(criticalThreat);
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
+        }
+      } else {
+        if (Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+
+      const newUrlsScanned = urlsScanned + results.itemsScanned;
+      setUrlsScanned(newUrlsScanned);
+      await saveMonitoringStats(newUrlsScanned, activitiesMonitored);
+    } catch (error) {
+      console.error("Quick Scan failed:", error);
+    } finally {
+      setIsScanning(false);
+      setScanProgress(null);
+    }
+  }, [isScanning, urlsScanned, activitiesMonitored]);
+
+  const runFullScan = useCallback(async (silent: boolean = false): Promise<void> => {
+    if (isScanning) return;
+    
+    setIsScanning(true);
+    if (!silent) {
+      console.log("🔍 Starting Full System Scan...");
+    }
+    
+    if (!silent && Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    }
+
+    try {
+      const results = await performFullScan((progress: ScanProgress) => {
+        if (!silent) {
+          setScanProgress(progress);
+        }
+      });
+
+      if (!silent) {
+        console.log(`✅ Full Scan completed: ${results.threatsFound.length} threats found`);
+      }
+
+      if (results.threatsFound.length > 0) {
+        const newThreats = results.threatsFound.map((threat: Omit<Threat, "id" | "detectedAt">) => ({
+          ...threat,
+          id: Date.now().toString() + Math.random(),
+          detectedAt: new Date(),
+        }));
+
+        const currentThreats = threatsRef.current;
+        const updatedThreats = [...newThreats, ...currentThreats];
+        setThreats(updatedThreats);
+        await saveThreats(updatedThreats);
+
+        const criticalThreat = newThreats.find(
+          (t: Threat) => t.level === "critical" || t.level === "high"
+        );
+
+        if (criticalThreat) {
+          setEmergencyAlert(criticalThreat);
+          if (!silent && Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
+        }
+      } else {
+        if (!silent && Platform.OS !== "web") {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+
+      const newUrlsScanned = urlsScanned + results.itemsScanned;
+      setUrlsScanned(newUrlsScanned);
+      await saveMonitoringStats(newUrlsScanned, activitiesMonitored);
+    } catch (error) {
+      console.error("Full Scan failed:", error);
+    } finally {
+      setIsScanning(false);
+      if (!silent) {
+        setScanProgress(null);
+      }
+    }
+  }, [isScanning, urlsScanned, activitiesMonitored]);
 
   const getSecurityStatus = useCallback((): SecurityStatus => {
     const activeThreats = threats.filter((t) => !t.blocked).length;
@@ -557,6 +799,7 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     threats,
     isLoading,
     emergencyAlert,
+    maliciousAlert,
     secureModeEnabled,
     isMonitoring,
     urlsScanned,
@@ -565,11 +808,18 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     targetEmail,
     lastLocationSent,
     locationPermissionStatus,
+    isScanning,
+    scanProgress,
+    isContinuousScanRunning,
+    continuousScanProgress,
     addThreat,
     blockThreat,
     removeThreat,
     clearAllThreats,
     dismissEmergencyAlert,
+    showMaliciousAlert,
+    dismissMaliciousAlert,
+    blockMalicious,
     getSecurityStatus,
     toggleSecureMode,
     resetMonitoringStats,
@@ -577,5 +827,7 @@ Apple Maps: http://maps.apple.com/?ll=${locationData.latitude},${locationData.lo
     updateTargetEmail,
     sendLocationNow,
     requestLocationPermission,
+    runQuickScan,
+    runFullScan,
   };
 });
