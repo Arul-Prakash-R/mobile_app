@@ -87,7 +87,19 @@ export default function ScannerScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Real-Time Protection" }} />
+      <Stack.Screen 
+        options={{ 
+          title: "Real-Time Protection",
+          headerStyle: {
+            backgroundColor: Colors.light.background,
+          },
+          headerTintColor: Colors.light.textWhite,
+          headerTitleStyle: {
+            color: Colors.light.textWhite,
+            fontWeight: "800" as const,
+          },
+        }} 
+      />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -246,10 +258,12 @@ export default function ScannerScreen() {
           
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <View style={[styles.statIconWrapper, { backgroundColor: Colors.light.primaryLight }]}>
+              <View style={[styles.statIconWrapper, { backgroundColor: Colors.light.primaryLight }]}> 
                 <Eye size={26} color={Colors.light.primary} strokeWidth={2.5} />
               </View>
-              <Text style={styles.statValue}>{urlsScanned}</Text>
+              <View style={styles.valueBox}>
+                <Text style={styles.statValue}>{urlsScanned.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+              </View>
               <Text style={styles.statLabel}>URLs Scanned</Text>
               <View style={[
                 styles.statStatus,
@@ -262,10 +276,12 @@ export default function ScannerScreen() {
             </View>
 
             <View style={styles.statCard}>
-              <View style={[styles.statIconWrapper, { backgroundColor: Colors.light.warningLight }]}>
+              <View style={[styles.statIconWrapper, { backgroundColor: Colors.light.warningLight }]}> 
                 <Zap size={26} color={Colors.light.warning} strokeWidth={2.5} />
               </View>
-              <Text style={styles.statValue}>{activitiesMonitored}</Text>
+              <View style={styles.valueBox}>
+                <Text style={styles.statValue}>{activitiesMonitored.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Text>
+              </View>
               <Text style={styles.statLabel}>Activities</Text>
               <View style={[
                 styles.statStatus,
@@ -386,13 +402,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: 20,
+    paddingBottom: 40,
   },
   header: {
     alignItems: "center",
-    marginBottom: 24,
-    paddingTop: 8,
+    marginBottom: 28,
+    paddingTop: 12,
   },
   mainShield: {
     width: 108,
@@ -408,28 +424,33 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: "800" as const,
-    color: Colors.light.text,
-    marginBottom: 10,
+    fontWeight: "900" as const,
+    color: Colors.light.textWhite,
+    marginBottom: 12,
     textAlign: "center" as const,
     letterSpacing: -0.8,
+    textShadowColor: "rgba(74, 158, 255, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    lineHeight: 38,
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.light.textSecondary,
+    color: Colors.light.textLight,
     textAlign: "center" as const,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     lineHeight: 24,
-    fontWeight: "500" as const,
+    fontWeight: "600" as const,
+    letterSpacing: 0.2,
   },
   toggleButton: {
-    borderRadius: 28,
-    padding: 24,
-    marginBottom: 24,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 28,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
   },
   toggleButtonActive: {
     backgroundColor: Colors.light.success,
@@ -465,15 +486,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toggleTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: "#fff",
+    fontSize: 19,
+    fontWeight: "800" as const,
+    color: "#ffffff",
     marginBottom: 4,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   toggleSubtitle: {
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.8)",
-    lineHeight: 18,
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.95)",
+    lineHeight: 20,
+    fontWeight: "500" as const,
+    letterSpacing: 0.2,
   },
   liveBadge: {
     flexDirection: "row",
@@ -498,16 +525,16 @@ const styles = StyleSheet.create({
   },
   monitoringSection: {
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 28,
-    padding: 28,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: Colors.light.primary + "25",
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: Colors.light.border + "40",
     shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
   },
   monitoringHeader: {
     flexDirection: "row",
@@ -516,22 +543,26 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   monitoringTitle: {
-    fontSize: 20,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
+    fontSize: 22,
+    fontWeight: "800" as const,
+    color: Colors.light.textWhite,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(74, 158, 255, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   scanningCard: {
     backgroundColor: Colors.light.primaryLight,
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: Colors.light.primary + "35",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.primary + "30",
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 2,
   },
   scanningHeader: {
     flexDirection: "row",
@@ -556,15 +587,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scanningTitle: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 2,
+    fontSize: 17,
+    fontWeight: "800" as const,
+    color: Colors.light.textWhite,
+    marginBottom: 4,
+    letterSpacing: 0.3,
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   scanningSubtitle: {
     fontSize: 13,
-    color: Colors.light.textSecondary,
+    color: Colors.light.textLight,
     fontWeight: "500" as const,
+    lineHeight: 18,
+    letterSpacing: 0.1,
   },
   percentBadge: {
     backgroundColor: Colors.light.primary,
@@ -641,12 +678,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   activityTitle: {
-    fontSize: 14,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: "800" as const,
+    color: Colors.light.textWhite,
+    marginBottom: 14,
     textTransform: "uppercase" as const,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   activityList: {
     gap: 10,
@@ -670,10 +707,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activityText: {
-    fontSize: 14,
-    fontWeight: "600" as const,
-    color: Colors.light.text,
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.light.textWhite,
+    marginBottom: 4,
+    letterSpacing: 0.2,
+    lineHeight: 20,
   },
   activityTime: {
     fontSize: 11,
@@ -684,30 +723,39 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 16,
+    fontSize: 24,
+    fontWeight: "800" as const,
+    color: Colors.light.textWhite,
+    marginBottom: 18,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(74, 158, 255, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   statsGrid: {
     flexDirection: "row",
     gap: 12,
     marginBottom: 16,
   },
+  valueBox: {
+    minWidth: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   statCard: {
     flex: 1,
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 24,
-    padding: 22,
+    borderRadius: 20,
+    padding: 20,
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: Colors.light.border + "20",
+    borderColor: Colors.light.border + "30",
   },
   statIconWrapper: {
     width: 58,
@@ -722,15 +770,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statValue: {
-    fontSize: 32,
-    fontWeight: "800" as const,
-    color: Colors.light.text,
+    fontSize: 36,
+    fontWeight: "900" as const,
+    color: Colors.light.textWhite,
+    letterSpacing: -1.2,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    // Keep width stable while numbers grow
+    fontVariant: ["tabular-nums"],
+    includeFontPadding: false,
   },
   statLabel: {
     fontSize: 12,
-    color: Colors.light.textSecondary,
-    fontWeight: "600" as const,
+    color: Colors.light.textLight,
+    fontWeight: "700" as const,
     textAlign: "center" as const,
+    letterSpacing: 0.5,
+    textTransform: "uppercase" as const,
+    marginTop: 4,
   },
   statStatus: {
     paddingHorizontal: 12,
@@ -759,22 +817,23 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   featuresList: {
-    gap: 12,
+    gap: 0,
   },
   featureCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 18,
+    gap: 16,
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 22,
-    padding: 22,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: Colors.light.border + "20",
+    borderColor: Colors.light.border + "30",
+    marginBottom: 12,
   },
   featureIcon: {
     width: 52,
@@ -787,15 +846,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: "600" as const,
-    color: Colors.light.text,
+    fontSize: 17,
+    fontWeight: "800" as const,
+    color: Colors.light.textWhite,
     marginBottom: 4,
+    letterSpacing: 0.3,
+    lineHeight: 22,
   },
   featureDescription: {
     fontSize: 13,
-    color: Colors.light.textSecondary,
-    lineHeight: 18,
+    color: Colors.light.textLight,
+    lineHeight: 19,
+    fontWeight: "500" as const,
+    letterSpacing: 0.1,
   },
   featureActiveBadge: {
     backgroundColor: Colors.light.success,
@@ -811,25 +874,31 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     backgroundColor: Colors.light.primaryLight,
-    borderRadius: 24,
-    padding: 26,
-    borderWidth: 2,
-    borderColor: Colors.light.primary + "35",
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: Colors.light.primary + "30",
     shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 2,
   },
   infoTitle: {
-    fontSize: 18,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
+    fontSize: 20,
+    fontWeight: "800" as const,
+    color: Colors.light.textWhite,
     marginBottom: 12,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(74, 158, 255, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   infoText: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
+    fontSize: 15,
+    color: Colors.light.textLight,
     lineHeight: 22,
+    fontWeight: "500" as const,
+    letterSpacing: 0.1,
   },
 });

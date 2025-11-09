@@ -1,29 +1,46 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Platform } from "react-native";
-import { ShieldX, AlertOctagon, X, Ban, ExternalLink, Globe } from "lucide-react-native";
+import { ShieldX, AlertOctagon, X, Ban, ExternalLink, Globe, AlertTriangle, CheckCircle, File, Package, Info } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { getCVESeverityColor } from "@/utils/cveDatabase";
 
 interface MaliciousAlertProps {
   visible: boolean;
   onDismiss: () => void;
   onBlock: () => void;
+  onContinue?: () => void; // New: Allow user to proceed
   title: string;
   description: string;
   url?: string;
   appName?: string;
-  type: "website" | "app";
+  fileName?: string;
+  filePath?: string;
+  type: "website" | "app" | "file" | "apk";
+  source?: string; // Where the malicious item was detected (e.g., "WhatsApp", "Instagram", "Downloads")
+  cveInfo?: {
+    cveId: string;
+    severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+    description: string;
+    cvssScore?: number;
+    publishedDate?: string;
+  };
 }
 
 export function MaliciousAlertModal({
   visible,
   onDismiss,
   onBlock,
+  onContinue,
   title,
   description,
   url,
   appName,
+  fileName,
+  filePath,
   type,
+  source,
+  cveInfo,
 }: MaliciousAlertProps) {
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const shakeAnim = React.useRef(new Animated.Value(0)).current;
@@ -121,6 +138,24 @@ export function MaliciousAlertModal({
     });
   };
 
+  const handleContinue = () => {
+    if (Platform.OS !== "web") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    
+    Animated.timing(scaleAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      if (onContinue) {
+        onContinue();
+      } else {
+        onDismiss();
+      }
+    });
+  };
+
   if (!visible) return null;
 
   return (
@@ -166,6 +201,44 @@ export function MaliciousAlertModal({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
 
+          {/* CVE Information Display */}
+          {cveInfo && (
+            <View style={[styles.cveBox, { borderColor: getCVESeverityColor(cveInfo.severity) }]}>
+              <View style={styles.cveHeader}>
+                <Info size={18} color={getCVESeverityColor(cveInfo.severity)} />
+                <Text style={styles.cveLabel}>CVE Vulnerability Detected</Text>
+              </View>
+              <View style={styles.cveContent}>
+                <View style={styles.cveRow}>
+                  <Text style={styles.cveIdLabel}>CVE ID:</Text>
+                  <Text style={[styles.cveId, { color: getCVESeverityColor(cveInfo.severity) }]}>
+                    {cveInfo.cveId}
+                  </Text>
+                </View>
+                <View style={styles.cveRow}>
+                  <Text style={styles.cveIdLabel}>Severity:</Text>
+                  <View style={[styles.severityBadge, { backgroundColor: getCVESeverityColor(cveInfo.severity) + "20" }]}>
+                    <Text style={[styles.severityText, { color: getCVESeverityColor(cveInfo.severity) }]}>
+                      {cveInfo.severity}
+                    </Text>
+                  </View>
+                </View>
+                {cveInfo.cvssScore && (
+                  <View style={styles.cveRow}>
+                    <Text style={styles.cveIdLabel}>CVSS Score:</Text>
+                    <Text style={[styles.cvssScore, { color: getCVESeverityColor(cveInfo.severity) }]}>
+                      {cveInfo.cvssScore}/10.0
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.cveDescription}>{cveInfo.description}</Text>
+                {cveInfo.publishedDate && (
+                  <Text style={styles.cveDate}>Published: {cveInfo.publishedDate}</Text>
+                )}
+              </View>
+            </View>
+          )}
+
           {type === "website" && url && (
             <View style={styles.detailsBox}>
               <View style={styles.detailRow}>
@@ -173,6 +246,9 @@ export function MaliciousAlertModal({
                 <Text style={styles.detailLabel}>Malicious URL:</Text>
               </View>
               <Text style={styles.detailValue} numberOfLines={2}>{url}</Text>
+              {source && (
+                <Text style={styles.sourceText}>Detected in: {source}</Text>
+              )}
             </View>
           )}
 
@@ -183,6 +259,41 @@ export function MaliciousAlertModal({
                 <Text style={styles.detailLabel}>Suspicious App:</Text>
               </View>
               <Text style={styles.detailValue}>{appName}</Text>
+              {source && (
+                <Text style={styles.sourceText}>Detected in: {source}</Text>
+              )}
+            </View>
+          )}
+
+          {type === "file" && fileName && (
+            <View style={styles.detailsBox}>
+              <View style={styles.detailRow}>
+                <File size={18} color={Colors.light.danger} />
+                <Text style={styles.detailLabel}>Malicious File:</Text>
+              </View>
+              <Text style={styles.detailValue} numberOfLines={2}>{fileName}</Text>
+              {filePath && (
+                <Text style={styles.sourceText}>Path: {filePath}</Text>
+              )}
+              {source && (
+                <Text style={styles.sourceText}>Detected in: {source}</Text>
+              )}
+            </View>
+          )}
+
+          {type === "apk" && fileName && (
+            <View style={styles.detailsBox}>
+              <View style={styles.detailRow}>
+                <Package size={18} color={Colors.light.danger} />
+                <Text style={styles.detailLabel}>Malicious APK:</Text>
+              </View>
+              <Text style={styles.detailValue} numberOfLines={2}>{fileName}</Text>
+              {filePath && (
+                <Text style={styles.sourceText}>Path: {filePath}</Text>
+              )}
+              {source && (
+                <Text style={styles.sourceText}>Detected in: {source}</Text>
+              )}
             </View>
           )}
 
@@ -191,6 +302,10 @@ export function MaliciousAlertModal({
             <Text style={styles.warningText}>
               {type === "website" 
                 ? "This website may steal your personal information, passwords, or financial data. Do not proceed."
+                : type === "apk"
+                ? "This APK contains malicious code that could harm your device, steal sensitive data, or compromise your security. Do not install."
+                : type === "file"
+                ? "This file contains malicious code or suspicious patterns. Opening it may harm your device or steal your data. Do not open."
                 : "This app contains malicious code that could harm your device or steal sensitive data. Do not install."}
             </Text>
           </View>
@@ -204,6 +319,17 @@ export function MaliciousAlertModal({
               <Ban size={20} color="#fff" strokeWidth={2.5} />
               <Text style={styles.blockButtonText}>BLOCK & PROTECT</Text>
             </TouchableOpacity>
+            
+            {onContinue && (
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={handleContinue}
+                activeOpacity={0.8}
+              >
+                <AlertTriangle size={20} color={Colors.light.warning} strokeWidth={2.5} />
+                <Text style={styles.continueButtonText}>CONTINUE ANYWAY</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text style={styles.footerText}>
@@ -288,19 +414,26 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800" as const,
-    color: Colors.light.text,
-    marginBottom: 12,
+    fontSize: 32,
+    fontWeight: "900" as const,
+    color: Colors.light.textWhite,
+    marginBottom: 16,
     textAlign: "center" as const,
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(255, 68, 68, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    lineHeight: 38,
   },
   description: {
-    fontSize: 16,
-    color: Colors.light.textSecondary,
+    fontSize: 17,
+    color: Colors.light.textLight,
     textAlign: "center" as const,
-    lineHeight: 24,
-    marginBottom: 24,
-    paddingHorizontal: 8,
+    lineHeight: 26,
+    marginBottom: 28,
+    paddingHorizontal: 12,
+    fontWeight: "600" as const,
+    letterSpacing: 0.2,
   },
   detailsBox: {
     width: "100%",
@@ -328,6 +461,12 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontWeight: "600" as const,
     lineHeight: 20,
+  },
+  sourceText: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    marginTop: 8,
+    fontStyle: "italic" as const,
   },
   warningBox: {
     flexDirection: "row",
@@ -372,11 +511,95 @@ const styles = StyleSheet.create({
     color: "#fff",
     letterSpacing: 0.8,
   },
+  continueButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: Colors.light.warningLight,
+    paddingVertical: 18,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.light.warning,
+    marginTop: 12,
+  },
+  continueButtonText: {
+    fontSize: 17,
+    fontWeight: "800" as const,
+    color: Colors.light.warning,
+    letterSpacing: 0.8,
+  },
   footerText: {
     fontSize: 11,
     color: Colors.light.textMuted,
     textAlign: "center" as const,
     marginTop: 16,
     fontWeight: "600" as const,
+  },
+  cveBox: {
+    backgroundColor: Colors.light.cardBackgroundDark,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderLeftWidth: 4,
+  },
+  cveHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  cveLabel: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+    color: Colors.light.textLight,
+    letterSpacing: 0.3,
+  },
+  cveContent: {
+    gap: 8,
+  },
+  cveRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cveIdLabel: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    fontWeight: "600" as const,
+  },
+  cveId: {
+    fontSize: 14,
+    fontWeight: "800" as const,
+    letterSpacing: 0.5,
+  },
+  severityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  severityText: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+    letterSpacing: 0.8,
+  },
+  cvssScore: {
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  cveDescription: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  cveDate: {
+    fontSize: 11,
+    color: Colors.light.textMuted,
+    marginTop: 4,
+    fontStyle: "italic" as const,
   },
 });

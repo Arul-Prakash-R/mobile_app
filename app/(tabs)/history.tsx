@@ -1,15 +1,16 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from "react-native";
 import { Stack } from "expo-router";
-import { History, Trash2, ShieldOff, AlertCircle, CheckCircle } from "lucide-react-native";
+import { History, Trash2, ShieldOff, AlertCircle, CheckCircle, FileText, Shield } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useSecurity } from "@/providers/SecurityProvider";
 import Colors from "@/constants/colors";
 import { getThreatColor, getThreatLabel } from "@/utils/security";
-import { Threat } from "@/types/security";
+import { Threat, SecurityLog } from "@/types/security";
 
 export default function HistoryScreen() {
-  const { threats, removeThreat, blockThreat, clearAllThreats } = useSecurity();
+  const { threats, removeThreat, blockThreat, clearAllThreats, securityLogs } = useSecurity();
+  const [showLogs, setShowLogs] = React.useState(false);
 
   const handleRemoveThreat = (threatId: string) => {
     if (Platform.OS !== "web") {
@@ -48,15 +49,121 @@ export default function HistoryScreen() {
       <Stack.Screen
         options={{
           title: "Threat History",
-          headerRight: threats.length > 0 ? () => (
-            <TouchableOpacity onPress={handleClearAll} style={styles.headerButton}>
-              <Trash2 size={20} color={Colors.light.danger} />
-            </TouchableOpacity>
-          ) : undefined,
+          headerStyle: {
+            backgroundColor: Colors.light.background,
+          },
+          headerTintColor: Colors.light.textWhite,
+          headerTitleStyle: {
+            color: Colors.light.textWhite,
+            fontWeight: "800" as const,
+          },
+          headerRight: () => (
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {threats.length > 0 && (
+                <TouchableOpacity onPress={handleClearAll} style={styles.headerButton}>
+                  <Trash2 size={20} color={Colors.light.danger} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setShowLogs(!showLogs)} style={styles.headerButton}>
+                <FileText size={20} color={showLogs ? Colors.light.primary : Colors.light.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          ),
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        {threats.length === 0 ? (
+        {showLogs ? (
+          <>
+            <View style={styles.statsHeader}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{securityLogs.length}</Text>
+                <Text style={styles.statLabel}>Total Logs</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: Colors.light.danger }]}>
+                  {securityLogs.filter(l => l.action === "blocked").length}
+                </Text>
+                <Text style={styles.statLabel}>Blocked</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: Colors.light.warning }]}>
+                  {securityLogs.filter(l => l.action === "allowed").length}
+                </Text>
+                <Text style={styles.statLabel}>Allowed</Text>
+              </View>
+            </View>
+
+            {securityLogs.length === 0 ? (
+              <View style={styles.emptyState}>
+                <FileText size={64} color={Colors.light.textMuted} strokeWidth={1.5} />
+                <Text style={styles.emptyStateTitle}>No Security Logs</Text>
+                <Text style={styles.emptyStateText}>
+                  Security activity logs will appear here
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.logList}>
+                {securityLogs.map((log) => (
+                  <View key={log.id} style={styles.logCard}>
+                    <View style={[styles.logBorder, { backgroundColor: getThreatColor(log.threatLevel) }]} />
+                    <View style={styles.logContent}>
+                      <View style={styles.logHeader}>
+                        <View style={styles.logHeaderLeft}>
+                          <Shield size={18} color={getThreatColor(log.threatLevel)} />
+                          <View style={styles.logHeaderText}>
+                            <Text style={styles.logTitle}>{log.description}</Text>
+                            <View style={[
+                              styles.logBadge,
+                              { backgroundColor: log.action === "blocked" ? Colors.light.danger + "20" : log.action === "allowed" ? Colors.light.warning + "20" : Colors.light.primary + "20" }
+                            ]}>
+                              <Text style={[
+                                styles.logBadgeText,
+                                { color: log.action === "blocked" ? Colors.light.danger : log.action === "allowed" ? Colors.light.warning : Colors.light.primary }
+                              ]}>
+                                {log.action.toUpperCase()}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.logMeta}>
+                        <Text style={styles.logSource}>Source: {log.source}</Text>
+                        {log.url && (
+                          <Text style={styles.logUrl} numberOfLines={1}>
+                            URL: {log.url}
+                          </Text>
+                        )}
+                        {log.appName && (
+                          <Text style={styles.logApp}>App: {log.appName}</Text>
+                        )}
+                        {log.fileName && (
+                          <Text style={styles.logUrl} numberOfLines={1}>
+                            File: {log.fileName}
+                          </Text>
+                        )}
+                        {log.filePath && (
+                          <Text style={styles.logUrl} numberOfLines={1}>
+                            Path: {log.filePath}
+                          </Text>
+                        )}
+                        <Text style={styles.logTime}>
+                          {new Date(log.timestamp).toLocaleString([], {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
+        ) : threats.length === 0 ? (
           <View style={styles.emptyState}>
             <History size={64} color={Colors.light.textMuted} strokeWidth={1.5} />
             <Text style={styles.emptyStateTitle}>No Threat History</Text>
@@ -175,8 +282,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: 20,
+    paddingBottom: 40,
   },
   headerButton: {
     padding: 8,
@@ -190,52 +297,69 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
+    fontSize: 22,
+    fontWeight: "800" as const,
+    color: Colors.light.textLight,
     marginTop: 16,
+    letterSpacing: 0.3,
   },
   emptyStateText: {
     fontSize: 15,
     color: Colors.light.textSecondary,
     textAlign: "center" as const,
+    fontWeight: "500" as const,
+    lineHeight: 22,
   },
   statsHeader: {
     flexDirection: "row",
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 18,
+    padding: 22,
     marginBottom: 20,
     gap: 20,
+    shadowColor: Colors.light.shadowDark,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.primary,
   },
   statItem: {
     flex: 1,
     alignItems: "center",
   },
   statValue: {
-    fontSize: 28,
-    fontWeight: "700" as const,
-    color: Colors.light.text,
-    marginBottom: 4,
+    fontSize: 32,
+    fontWeight: "800" as const,
+    color: Colors.light.textLight,
+    marginBottom: 6,
+    letterSpacing: -0.8,
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.light.textSecondary,
-    fontWeight: "500" as const,
+    fontWeight: "600" as const,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
   },
   threatList: {
     gap: 12,
   },
   threatCard: {
     backgroundColor: Colors.light.cardBackground,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: "hidden",
     flexDirection: "row",
-    shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: Colors.light.shadowDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   threatBorder: {
     width: 5,
@@ -260,10 +384,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   threatTitle: {
-    fontSize: 16,
-    fontWeight: "600" as const,
-    color: Colors.light.text,
+    fontSize: 17,
+    fontWeight: "700" as const,
+    color: Colors.light.textLight,
     marginBottom: 6,
+    letterSpacing: 0.2,
   },
   levelBadge: {
     alignSelf: "flex-start",
@@ -327,5 +452,85 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600" as const,
     color: Colors.light.danger,
+  },
+  logList: {
+    gap: 12,
+  },
+  logCard: {
+    backgroundColor: Colors.light.cardBackground,
+    borderRadius: 18,
+    overflow: "hidden",
+    flexDirection: "row",
+    shadowColor: Colors.light.shadowDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  logBorder: {
+    width: 5,
+  },
+  logContent: {
+    flex: 1,
+    padding: 16,
+  },
+  logHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  logHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    flex: 1,
+  },
+  logHeaderText: {
+    flex: 1,
+  },
+  logTitle: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.light.textLight,
+    marginBottom: 6,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+  },
+  logBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  logBadgeText: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    letterSpacing: 0.5,
+  },
+  logMeta: {
+    marginTop: 8,
+    gap: 4,
+  },
+  logSource: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    fontWeight: "500" as const,
+  },
+  logUrl: {
+    fontSize: 11,
+    color: Colors.light.textMuted,
+  },
+  logApp: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  logTime: {
+    fontSize: 11,
+    color: Colors.light.textMuted,
+    marginTop: 4,
+    fontWeight: "500" as const,
   },
 });

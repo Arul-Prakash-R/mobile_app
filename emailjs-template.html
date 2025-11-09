@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Location Update</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #007AFF;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #007AFF;
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header p {
+            color: #666666;
+            margin: 8px 0 0 0;
+            font-size: 14px;
+        }
+        .info-section {
+            margin-bottom: 25px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #555555;
+            font-size: 14px;
+        }
+        .info-value {
+            color: #333333;
+            font-size: 14px;
+            text-align: right;
+        }
+        .coordinates-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007AFF;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .coordinates-box strong {
+            color: #007AFF;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .coordinates-box .coords {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: #333333;
+            font-weight: 600;
+        }
+        .map-links {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+        .map-button {
+            flex: 1;
+            min-width: 140px;
+            display: inline-block;
+            padding: 12px 20px;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: opacity 0.3s;
+        }
+        .google-maps {
+            background-color: #4285F4;
+            color: #ffffff;
+        }
+        .apple-maps {
+            background-color: #000000;
+            color: #ffffff;
+        }
+        .map-button:hover {
+            opacity: 0.9;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            color: #999999;
+            font-size: 12px;
+        }
+        .timestamp {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .timestamp strong {
+            color: #856404;
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        .timestamp .time {
+            color: #856404;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .device-badge {
+            display: inline-block;
+            background-color: #007AFF;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📍 Device Location Update</h1>
+            <p>Find My Device - Location Tracking</p>
+        </div>
+
+        <div class="info-section">
+            <div class="info-row">
+                <span class="info-label">Device:</span>
+                <span class="info-value">
+                    {{device_name}}
+                    <span class="device-badge">ACTIVE</span>
+                </span>
+            </div>
+            
+            <div class="info-row">
+                <span class="info-label">GPS Accuracy:</span>
+                <span class="info-value">{{accuracy}}</span>
+            </div>
+        </div>
+
+        <div class="coordinates-box">
+            <strong>📍 Current Location Coordinates</strong>
+            <div class="coords">{{coordinates}}</div>
+        </div>
+
+        <div class="timestamp">
+            <strong>🕐 Location Timestamp</strong>
+            <div class="time">{{timestamp}}</div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-row">
+                <span class="info-label">Latitude:</span>
+                <span class="info-value">{{latitude}}°</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Longitude:</span>
+                <span class="info-value">{{longitude}}°</span>
+            </div>
+        </div>
+
+        <div class="map-links">
+            <a href="{{google_maps_link}}" class="map-button google-maps" target="_blank">
+                🗺️ Open in Google Maps
+            </a>
+            <a href="{{apple_maps_link}}" class="map-button apple-maps" target="_blank">
+                🍎 Open in Apple Maps
+            </a>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated location update from Find My Device security app.</p>
+            <p>Location updates are sent every 6 hours automatically.</p>
+        </div>
+    </div>
+</body>
+</html>
+

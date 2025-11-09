@@ -4,7 +4,7 @@
     "slug": "securemobile-app-5uxuwp2",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon1.png",
     "scheme": "rork-app",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -17,11 +17,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.rork.securemobile-app-5uxuwp2",
       "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location.",
-        "NSLocationAlwaysUsageDescription": "Allow $(PRODUCT_NAME) to use your location.",
-        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location for Find My Device feature.",
+        "NSLocationAlwaysUsageDescription": "Allow $(PRODUCT_NAME) to use your location for Find My Device feature.",
+        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location for Find My Device feature.",
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to scan files for security threats.",
+        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to scan files for security threats.",
+        "NSDocumentsFolderUsageDescription": "Allow $(PRODUCT_NAME) to scan documents for security threats.",
         "UIBackgroundModes": [
-          "location"
+          "location",
+          "fetch",
+          "processing"
         ]
       }
     },
@@ -37,7 +42,18 @@
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION"
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.GET_PACKAGE_SIZE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.WAKE_LOCK"
       ]
     },
     "web": {

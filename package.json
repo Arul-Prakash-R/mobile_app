@@ -3,9 +3,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "bunx rork start -p b5ugx0x4gt7ocn3kn694l --tunnel",
-    "start-web": "bunx rork start -p b5ugx0x4gt7ocn3kn694l --web --tunnel",
-    "start-web-dev": "DEBUG=expo* bunx rork start -p b5ugx0x4gt7ocn3kn694l --web --tunnel",
+    "start": "expo start",
+    "start-tunnel": "expo start --tunnel",
+    "start-web": "expo start --web",
+    "start-local": "expo start --localhost",
     "lint": "expo lint"
   },
   "dependencies": {
@@ -18,7 +19,7 @@
     "@tanstack/eslint-plugin-query": "^5.91.2",
     "@tanstack/react-query": "^5.90.7",
     "@ungap/structured-clone": "^1.3.0",
-    "expo": "^54.0.20",
+    "expo": "~54.0.23",
     "expo-blur": "~15.0.7",
     "expo-clipboard": "~8.0.7",
     "expo-constants": "~18.0.10",
@@ -29,7 +30,7 @@
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.8",
     "expo-location": "~19.0.7",
-    "expo-router": "~6.0.13",
+    "expo-router": "~6.0.14",
     "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
     "expo-symbols": "~1.0.7",
@@ -53,7 +54,7 @@
     "@expo/ngrok": "^4.1.0",
     "@types/react": "~19.1.10",
     "eslint": "9.31.0",
-    "eslint-config-expo": "9.2.0",
+    "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

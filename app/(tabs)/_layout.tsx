@@ -10,6 +10,14 @@ export default function TabLayout() {
         tabBarActiveTintColor: Colors.light.primary,
         tabBarInactiveTintColor: Colors.light.tabIconDefault,
         headerShown: true,
+        headerStyle: {
+          backgroundColor: Colors.light.background,
+        },
+        headerTintColor: Colors.light.textWhite,
+        headerTitleStyle: {
+          color: Colors.light.textWhite,
+          fontWeight: "800" as const,
+        },
         tabBarStyle: {
           backgroundColor: Colors.light.cardBackground,
           borderTopColor: Colors.light.border,

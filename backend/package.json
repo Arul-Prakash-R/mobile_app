@@ -1,0 +1,28 @@
+{
+  "name": "email-proxy-backend",
+  "version": "1.0.0",
+  "description": "Backend proxy for EmailJS to support mobile apps",
+  "main": "backend-email-proxy.js",
+  "scripts": {
+    "start": "node backend-email-proxy.js",
+    "dev": "nodemon backend-email-proxy.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "eslint-config-expo": "~10.0.0",
+    "expo": "~54.0.23",
+    "expo-router": "~6.0.14",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "email",
+    "emailjs",
+    "proxy",
+    "mobile"
+  ],
+  "author": "",
+  "license": "MIT"
+}

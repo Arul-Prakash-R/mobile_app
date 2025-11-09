@@ -1,53 +1,57 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SecurityProvider, useSecurity } from "@/providers/SecurityProvider";
-import { EmergencyAlertModal } from "@/components/EmergencyAlertModal";
-import { MaliciousAlertModal } from "@/components/MaliciousAlertModal";
+import { Link, Stack } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
+import { ShieldOff } from "lucide-react-native";
+import Colors from "@/constants/colors";
 
-SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
-
-function RootLayoutNav() {
-  const { maliciousAlert, dismissMaliciousAlert, blockMalicious } = useSecurity();
-  
+export default function NotFoundScreen() {
   return (
     <>
-      <Stack screenOptions={{ headerBackTitle: "Back" }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <EmergencyAlertModal />
-      {maliciousAlert && (
-        <MaliciousAlertModal
-          visible={maliciousAlert.visible}
-          title={maliciousAlert.title}
-          description={maliciousAlert.description}
-          url={maliciousAlert.url}
-          appName={maliciousAlert.appName}
-          type={maliciousAlert.type}
-          onDismiss={dismissMaliciousAlert}
-          onBlock={blockMalicious}
-        />
-      )}
+      <Stack.Screen options={{ title: "Page Not Found" }} />
+      <View style={styles.container}>
+        <ShieldOff size={64} color={Colors.light.textMuted} />
+        <Text style={styles.title}>Page Not Found</Text>
+        <Text style={styles.description}>
+          This page doesn&apos;t exist or has been removed.
+        </Text>
+        <Link href="/" style={styles.link}>
+          <Text style={styles.linkText}>Go to Dashboard</Text>
+        </Link>
+      </View>
     </>
   );
 }
 
-export default function RootLayout() {
-  useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <SecurityProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </SecurityProvider>
-    </QueryClientProvider>
-  );
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: Colors.light.background,
+    gap: 12,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700" as const,
+    color: Colors.light.text,
+    marginTop: 16,
+  },
+  description: {
+    fontSize: 15,
+    color: Colors.light.textSecondary,
+    textAlign: "center" as const,
+    marginBottom: 8,
+  },
+  link: {
+    backgroundColor: Colors.light.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  linkText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: "#fff",
+  },
+});
